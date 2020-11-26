@@ -2,6 +2,7 @@ Source: amongus
 Section: games
 Priority: optional
 Maintainer: Riccardo Isola <riky.isola@gmail.com>
+Build-Depends: debhelper (>= 10)
 Homepage: https://github.com/RikyIsola/Among-us-linux
 
 
