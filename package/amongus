@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+cd /usr/share/amongus
+ANDROID_AVD_HOME=/usr/share/amongus/avd ANDROID_SDK_ROOT=/usr/share/amongus/sdk sdk/emulator/emulator -avd amongus &
+
+adb wait-for-device
+while [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" != "1" ]
+do
+	sleep 2
+done
+
+if ! adb shell pm list packages | grep com.innersloth.spacemafia
+then
+	adb install /usr/share/amongus/amongus.apk
+	adb install /usr/share/amongus/nullkeyboard.apk
+	sleep 1
+	adb shell ime enable com.wparam.nullkeyboard/.NullKeyboard
+	adb shell ime set com.wparam.nullkeyboard/.NullKeyboard
+fi
+adb shell am start -n com.innersloth.spacemafia/com.unity3d.player.UnityPlayerActivity
+
+keyboard2mouse /usr/share/amongus/controls.ini

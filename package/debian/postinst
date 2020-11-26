@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+mkdir -p /usr/share/amongus
+cd /usr/share/amongus
+pip3 -q install keyboard2mouse
+wget https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip -O sdk.zip
+unzip sdk.zip > /dev/null
+rm sdk.zip
+mkdir -p sdk/cmdline-tools/latest
+mv cmdline-tools/* sdk/cmdline-tools/latest
+rmdir cmdline-tools
+unzip avd.zip > /dev/null
+yes | sdk/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
+sdk/cmdline-tools/latest/bin/sdkmanager 'system-images;android-30;google_apis;x86'
+mkdir sdk/platforms
+mkdir sdk/platform-tools
+chmod -R 777 avd/amongus.avd

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Among us
+Keywords=game;strategy;
+Comment=Among Us è un videogioco multigiocatore di sopravvivenza
+Icon=amongus
+Exec=amongus
+Terminal=false
+StartupNotify=false
+Categories=Game;StrategyGame;

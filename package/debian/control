@@ -1,0 +1,11 @@
+Source: amongus
+Section: games
+Priority: optional
+Maintainer: Riccardo Isola <riky.isola@gmail.com>
+Homepage: https://github.com/RikyIsola/Among-us-linux
+
+
+Package: amongus
+Architecture: any
+Description: Install among us using the android emulator
+Pre-Depends: wget, coreutils, python3-pip, unzip, adb
