@@ -1,7 +1,7 @@
 amongus /usr/bin
-amongus.apk /usr/share/amongus
 amongus.desktop /usr/share/applications
 amongus.png /usr/share/pixmaps
 avd.zip /usr/share/amongus
+amongus.py /usr/share/amongus
 controls.ini /usr/share/amongus
 nullkeyboard.apk /usr/share/amongus

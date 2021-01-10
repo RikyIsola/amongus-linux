@@ -2,7 +2,7 @@
 set -e
 mkdir -p /usr/share/amongus
 cd /usr/share/amongus
-pip3 -q install keyboard2mouse
+pip3 -q install --upgrade keyboard2mouse beautifulsoup4 requests
 wget https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip -O sdk.zip
 unzip sdk.zip > /dev/null
 rm sdk.zip

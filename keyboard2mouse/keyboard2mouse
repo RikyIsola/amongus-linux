@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+from subprocess import Popen,PIPE,run
+from pyautogui import mouseDown,mouseUp,click
+from configparser import ConfigParser
+from typing import List,Optional,Tuple,Any,Dict
+from time import sleep
+from pynput.keyboard import Listener,GlobalHotKeys
+import pyautogui
+from atexit import register
+from argparse import ArgumentParser,Namespace
+from traceback import print_exc
+
+DIMENSIONS_KEY='dimensions:'
+
+def get_screen_size()->Tuple[int,int]:
+    command=Popen(['xdpyinfo'],stdout=PIPE)
+    lines:List[bytes]=command.stdout.readlines()
+    for line in [line.decode() for line in lines]:
+        if DIMENSIONS_KEY in line:
+            dimensions=line[line.find(DIMENSIONS_KEY)+len(DIMENSIONS_KEY)+4:line.find('pixels')-1].split('x')
+            return int(dimensions[0]), int(dimensions[1])
+
+def get_repeat_keys()->bool:
+    return get_property('org.gnome.desktop.peripherals.keyboard repeat')
+
+def get_property(key:str)->bool:
+    command = Popen(['gsettings', 'get', *(key.split(' '))], stdout=PIPE)
+    result: str = command.stdout.readline().decode().strip()
+    if result == 'true':
+        return True
+    elif result == 'false':
+        return False
+    else:
+        raise Exception(result)
+
+def set_property(key:str,value:bool):
+    run(['gsettings', 'set', *(key.split(' ')), str(value).lower()],check=True)
+
+def set_repeat_keys(value:bool):
+    set_property('org.gnome.desktop.peripherals.keyboard repeat',value)
+
+def enable_properties():
+    set_repeat_keys(False)
+
+class Keyboard2Mouse:
+    def __init__(self,config:Dict[str,Dict[str,str]],debug=False):
+        self.debug=debug
+        self.previous_focus:bool=True
+        self.old_enabled:bool=True
+        self.pressed: List[str] = []
+        self._enabled: bool = False
+        self.config:Dict[str,Dict[str,str]]=config
+        self.old_repeat_mode = get_repeat_keys()
+        self.listeners:List[Any]=[
+            Listener(on_press=self.on_press, on_release=self.on_release),
+            GlobalHotKeys({'<ctrl>+k': self.disable})]
+        pyautogui.FAILSAFE = False
+        self.conversion: Tuple[int, int] = (int(self.config['DISPLAY']['width']), int(self.config['DISPLAY']['height']))
+        self.display: Tuple[int, int] = get_screen_size()
+        self.last_position: Optional[Tuple[int, int]] = None
+
+    def set_enabled(self,value:bool):
+        self._enabled=value
+        if value:
+            enable_properties()
+        else:
+            self.disable_properties()
+
+    enabled=property(lambda self:self._enabled,set_enabled)
+
+    def close(self):
+        self.disable_properties()
+        for listener in self.listeners:
+            listener.stop()
+
+    def start(self,block=True):
+        register(self.close)
+        for listener in self.listeners:
+            listener.start()
+        if block:
+            print('Waiting for window to open')
+            while not self.is_program_running():
+                sleep(1)
+            self.enabled=True
+            print('Started')
+            while self.is_program_running():
+                focus:bool=self.has_program_focus()
+                if focus!=self.previous_focus:
+                    if focus:
+                        self.enabled=self.old_enabled
+                    else:
+                        self.old_enabled=self.enabled
+                        self.enabled=False
+                    self.previous_focus=focus
+                sleep(1)
+
+    def on_press(self,key):
+        char:str=get_char_from_key(key)
+        if self.debug:
+            print('pressed', char)
+        self.pressed.append(char)
+        self.loop()
+
+    def on_release(self,key):
+        char:str=get_char_from_key(key)
+        if self.debug:
+            print('released', char)
+        if char in self.pressed:
+            self.pressed.remove(char)
+        self.loop()
+
+    def disable(self):
+        self.enabled = not self.enabled
+        if self.debug:
+            print('enabled' if self.enabled else 'disabled')
+        self.loop()
+
+    def disable_properties(self):
+        set_repeat_keys(self.old_repeat_mode)
+
+    def is_program_running(self):
+        if 'window_name' not in self.config['DISPLAY']:
+            return True
+        line:str=Popen(['xdotool','search','--name',self.config['DISPLAY']['window_name']],stdout=PIPE).\
+            stdout.read().decode()
+        return len(line)>0
+
+    def has_program_focus(self):
+        if 'window_name' not in self.config['DISPLAY']:
+            return True
+        try:
+            window_id:int=int(Popen(['xdotool','getactivewindow'],stdout=PIPE).stdout.read().decode())
+        except ValueError:
+            return False
+        line:str=Popen(['xdotool','getwindowname',str(window_id)],stdout=PIPE).stdout.read().decode()
+        return self.config['DISPLAY']['window_name'] in line
+
+    def loop(self):
+        if not self.enabled:
+            return
+        position: Optional[Tuple[int, int]] = None
+        for key in self.pressed:
+            if key in self.config:
+                props = self.config[key]
+                repeat: bool = 'repeat' in props and bool(props['repeat'])
+                pos: Tuple[int, int] = (int(props['x']), int(props['y']))
+                if repeat:
+                    if position is None:
+                        position = pos
+                    else:
+                        position = ((position[0] + pos[0]) // 2, (position[1] + pos[1]) // 2)
+                else:
+                    position = None
+                    mouseUp()
+                    while True:
+                        try:
+                            click(pos[0] * self.display[0] / self.conversion[0],
+                                  pos[1] * self.display[1] / self.conversion[1])
+                            break
+                        except RuntimeError:
+                            print_exc()
+                    break
+        if position is None:
+            mouseUp()
+            self.last_position = None
+        elif position != self.last_position:
+            mouseDown(position[0] * self.display[0] / self.conversion[0],
+                      position[1] * self.display[1] / self.conversion[1])
+            self.last_position = position
+
+
+def get_char_from_key(key)->str:
+    try:
+        return key.char
+    except AttributeError:
+        return str(key)[4:]
+
+def main():
+    parser:ArgumentParser=ArgumentParser()
+    parser.add_argument('config',type=str,help='The file containing the keys to map')
+    parser.add_argument('--debug','-d',default=False,action='store_true',help='Enables debug mod')
+    args:Namespace=parser.parse_args()
+    config: ConfigParser = ConfigParser()
+    config.read(args.config)
+    if '_sections' not in config.__dict__:
+        print('Config file not found')
+        exit(1)
+    keyboard2mouse=Keyboard2Mouse(config.__dict__['_sections'],args.debug)
+    keyboard2mouse.start()
+
+if __name__=='__main__':
+    main()
