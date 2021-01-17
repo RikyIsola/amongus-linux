@@ -11,7 +11,7 @@ setup(
    license="GPL-3",
    author='Riccardo Isola',
    author_email='riky.isola@gmail.com',
-   url="https://github.com/RikyIsola/Linux-Keyboard2Mouse",
+   url="https://github.com/RikyIsola/amongus-linux/tree/main/keyboard2mouse",
    packages=find_packages(),
    install_requires=['pyautogui','pynput'],
    scripts=['keyboard2mouse']
